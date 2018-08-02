@@ -124,6 +124,7 @@ typedef NS_ENUM(NSUInteger, YYAnimatedImageType) {
     @package
     UIImage <YYAnimatedImage> *_curAnimatedImage;
     
+    dispatch_once_t _onceToken;
     dispatch_semaphore_t _lock; ///< lock for _buffer
     NSOperationQueue *_requestQueue; ///< image request queue, serial
     
@@ -194,6 +195,7 @@ typedef NS_ENUM(NSUInteger, YYAnimatedImageType) {
 
 @implementation YYAnimatedImageView
 
+
 - (instancetype)init {
     self = [super init];
     _runloopMode = NSRunLoopCommonModes;
@@ -230,7 +232,7 @@ typedef NS_ENUM(NSUInteger, YYAnimatedImageType) {
 
 // init the animated params.
 - (void)resetAnimated {
-    if (!_link) {
+    dispatch_once(&_onceToken, ^{
         _lock = dispatch_semaphore_create(1);
         _buffer = [NSMutableDictionary new];
         _requestQueue = [[NSOperationQueue alloc] init];
@@ -243,7 +245,7 @@ typedef NS_ENUM(NSUInteger, YYAnimatedImageType) {
         
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didReceiveMemoryWarning:) name:UIApplicationDidReceiveMemoryWarningNotification object:nil];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
-    }
+    });
     
     [_requestQueue cancelAllOperations];
     LOCK(
@@ -458,6 +460,9 @@ typedef NS_ENUM(NSUInteger, YYAnimatedImageType) {
 }
 
 - (void)step:(CADisplayLink *)link {
+    if (self.isStopAnimateImages) {
+        return;
+    }
     UIImage <YYAnimatedImage> *image = _curAnimatedImage;
     NSMutableDictionary *buffer = _buffer;
     UIImage *bufferedImage = nil;
@@ -465,6 +470,13 @@ typedef NS_ENUM(NSUInteger, YYAnimatedImageType) {
     BOOL bufferIsFull = NO;
     
     if (!image) return;
+//    if (self.del != nil && [self.del respondsToSelector:@selector(isCompletelyVisible)]) {
+//        BOOL isVisible = [self.del isCompletelyVisible];
+//        if (!isVisible) {
+//            [self stopAnimating];
+//            return;
+//        }
+//    }
     if (_loopEnd) { // view will keep in last frame
         [self stopAnimating];
         return;

@@ -86,7 +86,7 @@ static CGFloat _NSStringPathScale(NSString *string) {
 
 @implementation YYImage {
     YYImageDecoder *_decoder;
-    NSArray *_preloadedFrames;
+    NSMutableArray *_preloadedFrames;
     dispatch_semaphore_t _preloadedLock;
     NSUInteger _bytesPerFrame;
 }
@@ -146,6 +146,10 @@ static CGFloat _NSStringPathScale(NSString *string) {
     if (scale <= 0) scale = [UIScreen mainScreen].scale;
     _preloadedLock = dispatch_semaphore_create(1);
     @autoreleasepool {
+        double i = data.length / 1024 / 1024;
+        if (i > 3) {
+            self.dontSetInCache = true;
+        }
         YYImageDecoder *decoder = [YYImageDecoder decoderWithData:data scale:scale];
         YYImageFrame *frame = [decoder frameAtIndex:0 decodeForDisplay:YES];
         UIImage *image = frame.image;
@@ -212,10 +216,6 @@ static CGFloat _NSStringPathScale(NSString *string) {
     }
 }
 
-+ (BOOL)supportsSecureCoding {
-    return  YES;
-}
-
 #pragma mark - protocol YYAnimatedImage
 
 - (NSUInteger)animatedImageFrameCount {
@@ -233,10 +233,22 @@ static CGFloat _NSStringPathScale(NSString *string) {
 - (UIImage *)animatedImageFrameAtIndex:(NSUInteger)index {
     if (index >= _decoder.frameCount) return nil;
     dispatch_semaphore_wait(_preloadedLock, DISPATCH_TIME_FOREVER);
-    UIImage *image = _preloadedFrames[index];
+    if (_preloadedFrames == nil) {
+        _preloadedFrames = [[NSMutableArray alloc] init];
+    }
+    UIImage *image = nil;
+    
+    if (_preloadedFrames.count != 0 && _preloadedFrames.count - 1 >= index) {
+        image = _preloadedFrames[index];
+    }
+    
     dispatch_semaphore_signal(_preloadedLock);
     if (image) return image == (id)[NSNull null] ? nil : image;
-    return [_decoder frameAtIndex:index decodeForDisplay:YES].image;
+    image = [_decoder frameAtIndex:index decodeForDisplay:YES].image;
+    if (self.dontSetInCache) {
+        [_preloadedFrames addObject:image];
+    }
+    return image;
 }
 
 - (NSTimeInterval)animatedImageDurationAtIndex:(NSUInteger)index {
@@ -244,13 +256,14 @@ static CGFloat _NSStringPathScale(NSString *string) {
     
     /*
      http://opensource.apple.com/source/WebCore/WebCore-7600.1.25/platform/graphics/cg/ImageSourceCG.cpp
-     Many annoying ads specify a 0 duration to make an image flash as quickly as 
-     possible. We follow Safari and Firefox's behavior and use a duration of 100 ms 
+     Many annoying ads specify a 0 duration to make an image flash as quickly as
+     possible. We follow Safari and Firefox's behavior and use a duration of 100 ms
      for any frames that specify a duration of <= 10 ms.
      See <rdar://problem/7689300> and <http://webkit.org/b/36082> for more information.
      
      See also: http://nullsleep.tumblr.com/post/16524517190/animated-gif-minimum-frame-delay-browser.
      */
+    
     if (duration < 0.011f) return 0.100f;
     return duration;
 }

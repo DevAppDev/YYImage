@@ -86,6 +86,7 @@ NS_ASSUME_NONNULL_BEGIN
  See `animatedImageMemorySize` for memory cost.
  */
 @property (nonatomic) BOOL preloadAllAnimatedImageFrames;
+@property (nonatomic) BOOL dontSetInCache;
 
 @end
 

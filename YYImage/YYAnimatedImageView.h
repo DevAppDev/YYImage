@@ -32,6 +32,11 @@ NS_ASSUME_NONNULL_BEGIN
      YYAnimatedImageView *imageView = [YYAnimatedImageView alloc] initWithImage:image];
      [view addSubView:imageView];
  */
+
+@protocol AnimatedImageDelegate <NSObject>
+-(BOOL)isCompletelyVisible;
+@end
+
 @interface YYAnimatedImageView : UIImageView
 
 /**
@@ -79,6 +84,9 @@ NS_ASSUME_NONNULL_BEGIN
  immediately, and may grow back at the right time.
  */
 @property (nonatomic) NSUInteger maxBufferSize;
+
+@property (nonatomic) BOOL isStopAnimateImages;
+@property (nonatomic, weak) id<AnimatedImageDelegate> del;
 
 @end
 
