@@ -245,7 +245,7 @@ static CGFloat _NSStringPathScale(NSString *string) {
     dispatch_semaphore_signal(_preloadedLock);
     if (image) return image == (id)[NSNull null] ? nil : image;
     image = [_decoder frameAtIndex:index decodeForDisplay:YES].image;
-    if (self.dontSetInCache) {
+    if (!self.dontSetInCache) {
         [_preloadedFrames addObject:image];
     }
     return image;
